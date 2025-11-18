@@ -58,6 +58,36 @@ function App() {
     filesRef.current = files
   }, [files])
 
+  const loadFile = useCallback(
+    (path: string, cacheBustImages = false) => {
+      fetch(`/api/files/${path}`)
+        .then((res) => res.json())
+        .then((data) => {
+          // Parse markdown to HTML client-side
+          let html = marked.parse(data.markdown) as string
+          // Wrap tables for horizontal scrolling
+          html = wrapTablesForScroll(html)
+          // Rewrite relative image paths to use /api/static/
+          html = rewriteImagePaths(html, cacheBustImages)
+          setContent(html)
+          setCurrentPath(path)
+          currentPathRef.current = path
+          // Update URL hash to reflect current file
+          window.location.hash = path
+          // Auto-expand folders containing the active file
+          const parts = path.split('/')
+          for (let i = 1; i < parts.length; i++) {
+            const folderPath = parts.slice(0, i).join('/')
+            expandFolder(folderPath)
+          }
+        })
+        .catch((err) => {
+          console.error('Error loading file:', err)
+        })
+    },
+    [expandFolder]
+  )
+
   useEffect(() => {
     // Fetch file list
     fetch('/api/files')
@@ -180,36 +210,6 @@ function App() {
       }
     }
   }, [loadFile])
-
-  const loadFile = useCallback(
-    (path: string, cacheBustImages = false) => {
-      fetch(`/api/files/${path}`)
-        .then((res) => res.json())
-        .then((data) => {
-          // Parse markdown to HTML client-side
-          let html = marked.parse(data.markdown) as string
-          // Wrap tables for horizontal scrolling
-          html = wrapTablesForScroll(html)
-          // Rewrite relative image paths to use /api/static/
-          html = rewriteImagePaths(html, cacheBustImages)
-          setContent(html)
-          setCurrentPath(path)
-          currentPathRef.current = path
-          // Update URL hash to reflect current file
-          window.location.hash = path
-          // Auto-expand folders containing the active file
-          const parts = path.split('/')
-          for (let i = 1; i < parts.length; i++) {
-            const folderPath = parts.slice(0, i).join('/')
-            expandFolder(folderPath)
-          }
-        })
-        .catch((err) => {
-          console.error('Error loading file:', err)
-        })
-    },
-    [expandFolder, setContent, setCurrentPath]
-  )
 
   const handleResizeStart = () => {
     startResizing()
