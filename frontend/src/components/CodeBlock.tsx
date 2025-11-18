@@ -30,9 +30,29 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
 
   useEffect(() => {
     if (codeRef.current) {
+      // Remove any existing line-numbers-rows element before re-highlighting
+      const pre = codeRef.current.parentElement
+      if (pre) {
+        const existingLineNumbers = pre.querySelector('.line-numbers-rows')
+        if (existingLineNumbers) {
+          existingLineNumbers.remove()
+        }
+      }
+
       Prism.highlightElement(codeRef.current)
+
+      // Manually add line number text content (Prism creates empty spans)
+      if (showLineNumbers && pre) {
+        const lineNumbersRows = pre.querySelector('.line-numbers-rows')
+        if (lineNumbersRows) {
+          const spans = lineNumbersRows.querySelectorAll('span')
+          spans.forEach((span, index) => {
+            span.textContent = String(index + 1)
+          })
+        }
+      }
     }
-  }, [code, language])
+  }, [code, language, showLineNumbers])
 
   const handleCopy = async () => {
     try {

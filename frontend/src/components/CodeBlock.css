@@ -72,6 +72,7 @@
 .code-block-wrapper pre.line-numbers {
   padding-left: 3.8em;
   position: relative;
+  counter-reset: linenumber;
 }
 
 .code-block-wrapper pre.line-numbers > code {
@@ -81,24 +82,22 @@
 .code-block-wrapper .line-numbers-rows {
   position: absolute;
   pointer-events: none;
-  top: 16px;
-  left: 0;
+  top: 0;
+  left: 8px;
   width: 3em;
-  letter-spacing: -1px;
+  letter-spacing: normal;
   user-select: none;
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid #888;
   padding-right: 8px;
 }
 
 .code-block-wrapper .line-numbers-rows > span {
   display: block;
   counter-increment: linenumber;
-}
-
-.code-block-wrapper .line-numbers-rows > span:before {
-  content: counter(linenumber);
-  color: var(--blockquote-color);
-  display: block;
-  padding-right: 0.8em;
+  color: #888;
+  font-size: 14px;
+  line-height: 21px;  /* Match code line-height: 14px * 1.5 = 21px */
   text-align: right;
+  font-family: monospace;
+  height: 21px;
 }
