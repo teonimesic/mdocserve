@@ -1,32 +1,99 @@
-name: Build & Release
+name: Release
 
 on:
   push:
-    branches: [ "main" ]
-    tags: [ "v*" ]
+    branches:
+      - main
   workflow_dispatch:
     inputs:
-      publish-crate:
-        description: 'Publish to crates.io'
-        required: false
-        type: boolean
-        default: false
-  workflow_call:
-    inputs:
-      ref:
-        description: 'Git ref (tag or branch) to build'
-        required: false
-        type: string
-        default: ''
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test-and-build:
+  version-bump:
+    # Skip if the commit message contains version bump indicators (only for push events)
+    if: "github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, 'Bump version') && !contains(github.event.head_commit.message, '[skip ci]'))"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Determine bump type (manual workflow_dispatch or auto patch)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          else
+            BUMP_TYPE="patch"
+          fi
+          echo "Bump type: $BUMP_TYPE"
+
+          # Calculate new version based on bump type
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          case $BUMP_TYPE in
+            major)
+              NEW_VERSION="$((major + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${major}.$((minor + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${major}.${minor}.$((patch + 1))"
+              ;;
+          esac
+
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Update package.json
+          npm version $NEW_VERSION --no-git-tag-version
+
+          # Update Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
+
+      - name: Commit and tag
+        run: |
+          git add package.json Cargo.toml
+          git commit -m "Bump version to ${{ steps.bump.outputs.version }} [skip ci]"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin main
+          git push origin "v${{ steps.bump.outputs.version }}"
+
+  build:
+    needs: version-bump
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +116,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.ref || github.ref }}
+        ref: v${{ needs.version-bump.outputs.version }}
 
     - name: Report Rust version
       run: rustup show
@@ -90,14 +157,13 @@ jobs:
         path: dist/mdocserve-${{ matrix.target }}
 
   publish-crate:
-    needs: test-and-build
+    needs: [version-bump, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.ref, 'v') || (github.event_name == 'workflow_dispatch' && inputs.publish-crate)
 
     steps:
     - uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.ref || github.ref }}
+        ref: v${{ needs.version-bump.outputs.version }}
 
     - name: Report Rust version
       run: rustup show
@@ -117,9 +183,8 @@ jobs:
       run: cargo publish
 
   release:
-    needs: test-and-build
+    needs: [version-bump, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.ref, 'v')
 
     steps:
     - name: Download all artifacts
@@ -167,6 +232,7 @@ jobs:
     - name: Create Release and Upload Artifacts
       uses: ncipollo/release-action@v1
       with:
+        tag: v${{ needs.version-bump.outputs.version }}
         artifacts: artifacts/*.tar.gz
         draft: true
         allowUpdates: true
@@ -174,9 +240,8 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-npm:
-    needs: release
+    needs: [version-bump, release]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.ref, 'v')
     permissions:
       contents: read
       id-token: write
@@ -184,7 +249,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.ref || github.ref }}
+        ref: v${{ needs.version-bump.outputs.version }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
