@@ -32,10 +32,10 @@ jobs:
       working-directory: frontend
       run: npm run typecheck
 
-    # TODO: Frontend unit tests hang in CI - needs investigation
-    # - name: Run unit tests
-    #   working-directory: frontend
-    #   run: npm run test:ci
+    - name: Run unit tests
+      working-directory: frontend
+      run: npx vitest run --reporter=verbose
+      timeout-minutes: 5
 
     - name: Build frontend
       working-directory: frontend
