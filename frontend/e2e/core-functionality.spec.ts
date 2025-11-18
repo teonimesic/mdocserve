@@ -430,11 +430,20 @@ test('should track renamed file after edit and rename', async ({ page }) => {
   await page.waitForSelector('h1')
 
   // Step 1: Edit the file and wait for the reload to complete
+  // Set up a promise to wait for the WebSocket message
+  const reloadPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/files/edit-test.md'),
+    { timeout: 10000 }
+  )
+
   writeFileSync(join(testDir, 'edit-test.md'), '# Edited Content\n\nThis has been edited.')
+
+  // Wait for the API to return the updated content
+  await reloadPromise
 
   // Wait for the DOM to update with the new content
   const heading = page.locator('h1')
-  await expect(heading).toHaveText('Edited Content', { timeout: 10000 })
+  await expect(heading).toHaveText('Edited Content', { timeout: 5000 })
 
   // Step 2: Rename the file
   const oldPath = join(testDir, 'edit-test.md')
