@@ -5,7 +5,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  frontend-tests:
+  frontend:
+    name: Frontend Tests & Build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
@@ -14,39 +15,35 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: '**/package-lock.json'
 
-    - name: Install frontend dependencies
-      run: npm --prefix frontend install
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm install
 
-    - name: Run frontend unit tests
-      run: npm --prefix frontend test
+    - name: Run unit tests
+      working-directory: frontend
+      run: npm test
 
     - name: Build frontend
-      run: npm --prefix frontend run build
+      working-directory: frontend
+      run: npm run build
 
-    - name: Setup Rust for E2E tests
-      run: rustup show
+    - name: Upload frontend build
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist
 
-    - name: Build Rust backend for E2E
-      run: cargo build --release
-
-    - name: Install Playwright browsers
-      run: npx --prefix frontend playwright install --with-deps chromium
-
-    - name: Run E2E tests
-      run: npm --prefix frontend run test:e2e
-
-  rust-tests:
+  backend:
+    name: Backend Tests & Build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
 
-    - name: Report Rust version
+    - name: Setup Rust
       run: rustup show
 
-    - name: Cache dependencies
+    - name: Cache Rust dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -63,3 +60,51 @@ jobs:
 
     - name: Run tests
       run: cargo test
+
+    - name: Build release
+      run: cargo build --release
+
+    - name: Upload backend binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-binary
+        path: target/release/mdocserve
+
+  e2e:
+    name: E2E Tests
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Download frontend build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist
+
+    - name: Download backend binary
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-binary
+        path: target/release
+
+    - name: Make binary executable
+      run: chmod +x target/release/mdocserve
+
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm install
+
+    - name: Install Playwright browsers
+      working-directory: frontend
+      run: npx playwright install --with-deps chromium
+
+    - name: Run E2E tests
+      working-directory: frontend
+      run: npm run test:e2e
