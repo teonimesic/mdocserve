@@ -1,17 +1,27 @@
-name: Auto Version Bump
+name: Version Bump & Release
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
 jobs:
   version-bump:
-    # Skip if the commit message contains version bump indicators
-    if: "!contains(github.event.head_commit.message, 'Bump version') && !contains(github.event.head_commit.message, '[skip ci]')"
+    # Skip if the commit message contains version bump indicators (only for push events)
+    if: "github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, 'Bump version') && !contains(github.event.head_commit.message, '[skip ci]'))"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -37,8 +47,28 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
 
-          # Bump patch version
-          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          # Determine bump type (manual workflow_dispatch or auto patch)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          else
+            BUMP_TYPE="patch"
+          fi
+          echo "Bump type: $BUMP_TYPE"
+
+          # Calculate new version based on bump type
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          case $BUMP_TYPE in
+            major)
+              NEW_VERSION="$((major + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${major}.$((minor + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${major}.${minor}.$((patch + 1))"
+              ;;
+          esac
+
           echo "New version: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
