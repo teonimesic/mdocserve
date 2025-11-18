@@ -21,6 +21,7 @@
     "test:browser": "BROWSER_MODE=true vitest --browser",
     "test:browser:ui": "BROWSER_MODE=true vitest --browser --ui",
     "test:browser:headed": "BROWSER_MODE=true vitest --browser --browser.headless=false",
+    "test:visual": "BROWSER_MODE=true vitest run --browser --config vitest.visual.config.ts",
     "test:e2e": "playwright test --reporter=list --max-failures=1",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
