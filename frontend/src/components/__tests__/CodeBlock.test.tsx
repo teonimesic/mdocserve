@@ -95,6 +95,27 @@ describe('CodeBlock', () => {
     expect(sessionStorage.getItem('code-line-numbers')).toBe('true')
   })
 
+  it('applies line-numbers class correctly for multi-line code', async () => {
+    const user = userEvent.setup()
+    const multiLineCode = 'line 1\nline 2\nline 3\nline 4\nline 5'
+    const { container } = render(<CodeBlock code={multiLineCode} language="javascript" />)
+
+    const toggleButton = screen.getByRole('button', { name: /toggle line numbers/i })
+    const preElement = container.querySelector('pre')
+
+    // Enable line numbers
+    await user.click(toggleButton)
+
+    await waitFor(() => {
+      expect(preElement).toHaveClass('line-numbers')
+    })
+
+    // Prism should have applied line numbers
+    // The line-numbers plugin adds data-line attributes or line number spans
+    // We verify the class is present which enables the CSS styling
+    expect(preElement?.classList.contains('line-numbers')).toBe(true)
+  })
+
   it('handles clipboard copy error gracefully', async () => {
     const user = userEvent.setup()
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
