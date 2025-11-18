@@ -296,12 +296,12 @@ async fn handle_markdown_file_change(path: &Path, state: &SharedMarkdownState) {
         if state_guard.refresh_file(&relative_path).is_ok() {
             let _ = state_guard.change_tx.send(ServerMessage::Reload);
         }
-    } else if state_guard.is_directory_mode {
-        if state_guard.add_tracked_file(path.to_path_buf()).is_ok() {
-            let _ = state_guard.change_tx.send(ServerMessage::FileAdded {
-                name: relative_path,
-            });
-        }
+    } else if state_guard.is_directory_mode
+        && state_guard.add_tracked_file(path.to_path_buf()).is_ok()
+    {
+        let _ = state_guard.change_tx.send(ServerMessage::FileAdded {
+            name: relative_path,
+        });
     }
 }
 
