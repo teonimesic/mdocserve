@@ -1,6 +1,6 @@
 [package]
 name = "mdocserve"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["Stefano Benatti <stefano@heavenstudio.com.br>"]
 edition = "2021"
 rust-version = "1.82.0"

@@ -1,6 +1,6 @@
 {
   "name": "mdocserve",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Fast markdown documentation server with React SPA frontend, recursive folder support, and live reload",
   "author": "Stefano Benatti <stefano@heavenstudio.com.br>",
   "license": "MIT",
