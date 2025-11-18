@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Pre-push hook to run all tests before pushing
+# This ensures that no broken code is pushed to the repository
+
+set -e
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# Check if frontend directory exists and run frontend tests
+if [ -d "frontend" ]; then
+  echo "📦 Running frontend tests..."
+  cd frontend
+  npm test -- --run
+  cd ..
+  echo "✅ Frontend tests passed"
+  echo ""
+fi
+
+# Check if Rust project exists and run backend tests
+if [ -f "Cargo.toml" ]; then
+  echo "🦀 Running backend tests..."
+  cargo test --quiet
+  echo "✅ Backend tests passed"
+  echo ""
+fi
+
+echo "✅ All pre-push checks passed!"
+echo "🚀 Pushing to remote..."
