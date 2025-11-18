@@ -21,7 +21,41 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: npm --prefix frontend install
+
+    - name: Run frontend unit tests
+      run: npm --prefix frontend test
+
+    - name: Build frontend
+      run: npm --prefix frontend run build
+
+    - name: Setup Rust for E2E tests
+      run: rustup show
+
+    - name: Build Rust backend for E2E
+      run: cargo build --release
+
+    - name: Install Playwright browsers
+      run: npx --prefix frontend playwright install --with-deps chromium
+
+    - name: Run E2E tests
+      run: npm --prefix frontend run test:e2e
+
   test-and-build:
+    needs: frontend-tests
     strategy:
       fail-fast: false
       matrix:
