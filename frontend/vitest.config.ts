@@ -10,5 +10,12 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     // Exclude visual tests and playwright e2e tests from unit test runs
     exclude: ['**/*.visual.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/node_modules/**', '**/e2e/**'],
+    // Use threads pool for better CI compatibility
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
   },
 })
