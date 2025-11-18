@@ -47,6 +47,7 @@ pub enum ServerMessage {
     Reload,
     Pong,
     FileAdded { name: String },
+    FileModified { name: String },
     FileRenamed { old_name: String, new_name: String },
     FileRemoved { name: String },
 }
@@ -294,7 +295,9 @@ async fn handle_markdown_file_change(path: &Path, state: &SharedMarkdownState) {
 
     if state_guard.tracked_files.contains_key(&relative_path) {
         if state_guard.refresh_file(&relative_path).is_ok() {
-            let _ = state_guard.change_tx.send(ServerMessage::Reload);
+            let _ = state_guard.change_tx.send(ServerMessage::FileModified {
+                name: relative_path,
+            });
         }
     } else if state_guard.is_directory_mode
         && state_guard.add_tracked_file(path.to_path_buf()).is_ok()

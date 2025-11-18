@@ -125,10 +125,16 @@ async fn test_file_modification_updates_via_websocket() {
 
     match update_result {
         Ok(update_message) => {
-            if let ServerMessage::Reload = update_message {
-                // Success - we received a reload signal
+            if let ServerMessage::FileModified { name } = update_message {
+                assert_eq!(
+                    name, "test.md",
+                    "FileModified should reference the correct file"
+                );
             } else {
-                panic!("Expected Reload message after file modification");
+                panic!(
+                    "Expected FileModified message after file modification, got {:?}",
+                    update_message
+                );
             }
         }
         Err(_) => {
@@ -238,10 +244,16 @@ async fn test_directory_mode_websocket_file_modification() {
 
     match update_result {
         Ok(update_message) => {
-            if let ServerMessage::Reload = update_message {
-                // Success - we received a reload signal
+            if let ServerMessage::FileModified { name } = update_message {
+                assert_eq!(
+                    name, "test1.md",
+                    "FileModified should reference the correct file"
+                );
             } else {
-                panic!("Expected Reload message after file modification");
+                panic!(
+                    "Expected FileModified message after file modification, got {:?}",
+                    update_message
+                );
             }
         }
         Err(_) => {

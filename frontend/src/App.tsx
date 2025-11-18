@@ -132,6 +132,11 @@ function App() {
             if (currentPathRef.current) {
               loadFile(currentPathRef.current, true)
             }
+          } else if (message.type === 'FileModified') {
+            // Handle file modification - reload the specific file
+            if (currentPathRef.current === message.name) {
+              loadFile(message.name, true)
+            }
           } else if (message.type === 'FileAdded') {
             // Handle new file added - refresh file list to show new file
             fetch('/api/files')
