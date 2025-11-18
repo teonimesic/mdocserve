@@ -162,7 +162,7 @@ impl MarkdownState {
         filenames
     }
 
-    fn refresh_file(&mut self, relative_path: &str) -> Result<()> {
+    fn refresh_file(&mut self, relative_path: &str) -> Result<bool> {
         if let Some(tracked) = self.tracked_files.get_mut(relative_path) {
             let metadata = fs::metadata(&tracked.path)?;
             let current_modified = metadata.modified()?;
@@ -171,10 +171,11 @@ impl MarkdownState {
                 let content = fs::read_to_string(&tracked.path)?;
                 tracked.markdown = content;
                 tracked.last_modified = current_modified;
+                return Ok(true); // File was refreshed
             }
         }
 
-        Ok(())
+        Ok(false) // File was not refreshed
     }
 
     fn update_file(&mut self, relative_path: &str, new_content: &str) -> Result<()> {
@@ -294,10 +295,12 @@ async fn handle_markdown_file_change(path: &Path, state: &SharedMarkdownState) {
     };
 
     if state_guard.tracked_files.contains_key(&relative_path) {
-        if state_guard.refresh_file(&relative_path).is_ok() {
-            let _ = state_guard.change_tx.send(ServerMessage::FileModified {
-                name: relative_path,
-            });
+        if let Ok(was_refreshed) = state_guard.refresh_file(&relative_path) {
+            if was_refreshed {
+                let _ = state_guard.change_tx.send(ServerMessage::FileModified {
+                    name: relative_path,
+                });
+            }
         }
     } else if state_guard.is_directory_mode
         && state_guard.add_tracked_file(path.to_path_buf()).is_ok()
