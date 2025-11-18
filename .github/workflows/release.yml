@@ -102,18 +102,24 @@ jobs:
           cd artifacts
           for dir in */; do
             name=${dir%/}
-            if [[ $name == *".exe" ]]; then
+            cd "$dir"
+            chmod +x * 2>/dev/null || true
+
+            # Rename binary to match the asset name
+            if [[ -f mdocserve ]]; then
+              mv mdocserve "$name"
+            elif [[ -f mdocserve.exe ]]; then
+              mv mdocserve.exe "$name"
+            fi
+
+            if [[ $name == *.exe ]]; then
               # Windows - create zip
-              cd "$dir"
-              zip "../${name}.zip" *
-              cd ..
+              zip "../${name}.zip" "$name"
             else
               # Unix - create tar.gz
-              cd "$dir"
-              chmod +x *
-              tar czf "../${name}.tar.gz" *
-              cd ..
+              tar czf "../${name}.tar.gz" "$name"
             fi
+            cd ..
           done
 
       - name: Create GitHub Release
