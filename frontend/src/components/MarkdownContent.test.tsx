@@ -149,4 +149,53 @@ describe('MarkdownContent', () => {
       expect(link?.getAttribute('href')).toBe('../root.md')
     })
   })
+
+  describe('relative asset link handling', () => {
+    it('should rewrite PDF link href to use /api/static/ with directory context', () => {
+      const html = '<p><a href="document.pdf">Open PDF</a></p>'
+
+      const { container } = render(<MarkdownContent html={html} filePath="docs/guide/page.md" />)
+
+      const link = container.querySelector('a')
+      expect(link).toBeTruthy()
+      expect(link?.getAttribute('href')).toBe('/api/static/docs/guide/document.pdf')
+    })
+
+    it('should rewrite nested asset link with directory context', () => {
+      const html = '<p><a href="assets/file.pdf">Download</a></p>'
+
+      const { container } = render(<MarkdownContent html={html} filePath="course/unit1/page.md" />)
+
+      const link = container.querySelector('a')
+      expect(link?.getAttribute('href')).toBe('/api/static/course/unit1/assets/file.pdf')
+    })
+
+    it('should rewrite asset link for root-level file', () => {
+      const html = '<p><a href="doc.pdf">PDF</a></p>'
+
+      const { container } = render(<MarkdownContent html={html} filePath="readme.md" />)
+
+      const link = container.querySelector('a')
+      expect(link?.getAttribute('href')).toBe('/api/static/doc.pdf')
+    })
+
+    it('should NOT rewrite external URLs', () => {
+      const html = '<p><a href="https://example.com/doc.pdf">External PDF</a></p>'
+
+      const { container } = render(<MarkdownContent html={html} filePath="docs/page.md" />)
+
+      const link = container.querySelector('a')
+      expect(link?.getAttribute('href')).toBe('https://example.com/doc.pdf')
+    })
+
+    it('should open asset links in a new tab', () => {
+      const html = '<p><a href="document.pdf">Open PDF</a></p>'
+
+      const { container } = render(<MarkdownContent html={html} filePath="docs/page.md" />)
+
+      const link = container.querySelector('a')
+      expect(link?.getAttribute('target')).toBe('_blank')
+      expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
+    })
+  })
 })

@@ -765,6 +765,61 @@ async fn test_api_static_supports_multiple_image_formats() {
     assert_eq!(response.header("content-type"), "image/webp");
 }
 
+#[tokio::test]
+async fn test_api_static_serves_pdf_successfully() {
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+
+    fs::write(temp_dir.path().join("test.md"), "# Test").expect("Failed to write markdown");
+
+    // Create a test PDF file (PDF magic bytes)
+    let pdf_bytes = b"%PDF-1.4 test content";
+    fs::write(temp_dir.path().join("doc.pdf"), pdf_bytes).expect("Failed to write pdf");
+
+    let base_dir = temp_dir.path().to_path_buf();
+    let tracked_files = scan_markdown_files(&base_dir).expect("Failed to scan");
+    let router = new_router(base_dir, tracked_files, true).expect("Failed to create router");
+    let server = TestServer::new(router).expect("Failed to create server");
+
+    let response = server.get("/api/static/doc.pdf").await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.header("content-type"), "application/pdf");
+    assert_eq!(response.as_bytes().as_ref(), pdf_bytes);
+}
+
+#[tokio::test]
+async fn test_api_static_serves_assets_in_subdirectories() {
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+
+    // Create a subdirectory structure like: subdir/nested/
+    let nested_dir = temp_dir.path().join("subdir").join("nested");
+    fs::create_dir_all(&nested_dir).expect("Failed to create nested dir");
+
+    fs::write(nested_dir.join("test.md"), "# Test").expect("Failed to write markdown");
+
+    // Create an image in the subdirectory
+    let png_bytes = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    fs::write(nested_dir.join("image.png"), &png_bytes).expect("Failed to write image");
+
+    // Create a PDF in the subdirectory
+    let pdf_bytes = b"%PDF-1.4 test";
+    fs::write(nested_dir.join("doc.pdf"), pdf_bytes).expect("Failed to write pdf");
+
+    let base_dir = temp_dir.path().to_path_buf();
+    let tracked_files = scan_markdown_files(&base_dir).expect("Failed to scan");
+    let router = new_router(base_dir, tracked_files, true).expect("Failed to create router");
+    let server = TestServer::new(router).expect("Failed to create server");
+
+    // Image in subdirectory should be accessible
+    let response = server.get("/api/static/subdir/nested/image.png").await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.header("content-type"), "image/png");
+
+    // PDF in subdirectory should be accessible
+    let response = server.get("/api/static/subdir/nested/doc.pdf").await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.header("content-type"), "application/pdf");
+}
+
 // ============================================================================
 // WebSocket Message Type Tests
 // ============================================================================

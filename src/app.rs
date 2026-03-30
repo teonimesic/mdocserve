@@ -473,7 +473,7 @@ async fn handle_file_event(event: Event, state: &SharedMarkdownState) {
                         }
                         _ => {}
                     }
-                } else if path.is_file() && is_image_file(path.to_str().unwrap_or("")) {
+                } else if path.is_file() && is_servable_file(path.to_str().unwrap_or("")) {
                     match event.kind {
                         Modify(_) | Create(_) | Remove(_) => {
                             handle_image_change(state).await;
@@ -671,8 +671,8 @@ async fn api_serve_static(
     AxumPath(path): AxumPath<String>,
     State(state): State<SharedMarkdownState>,
 ) -> impl IntoResponse {
-    // Only serve image files for security
-    if !is_image_file(&path) {
+    // Only serve allowed file types for security
+    if !is_servable_file(&path) {
         return (
             StatusCode::NOT_FOUND,
             [(header::CONTENT_TYPE, "text/plain")],
@@ -698,7 +698,7 @@ async fn api_serve_static(
 
             match fs::read(&canonical_path) {
                 Ok(contents) => {
-                    let content_type = guess_image_content_type(&path);
+                    let content_type = guess_content_type(&path);
                     (
                         StatusCode::OK,
                         [(header::CONTENT_TYPE, content_type.as_str())],
@@ -727,7 +727,7 @@ async fn server_health() -> impl IntoResponse {
     (StatusCode::OK, "ready")
 }
 
-fn is_image_file(file_path: &str) -> bool {
+fn is_servable_file(file_path: &str) -> bool {
     let extension = std::path::Path::new(file_path)
         .extension()
         .and_then(|ext| ext.to_str())
@@ -735,11 +735,18 @@ fn is_image_file(file_path: &str) -> bool {
 
     matches!(
         extension.to_lowercase().as_str(),
-        "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp" | "bmp" | "ico"
+        // Images
+        "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp" | "bmp" | "ico" |
+        // Documents
+        "pdf" |
+        // Audio/Video
+        "mp3" | "mp4" | "ogg" | "wav" | "webm" |
+        // Fonts
+        "woff" | "woff2" | "ttf" | "otf" | "eot"
     )
 }
 
-fn guess_image_content_type(file_path: &str) -> String {
+fn guess_content_type(file_path: &str) -> String {
     let extension = std::path::Path::new(file_path)
         .extension()
         .and_then(|ext| ext.to_str())
@@ -753,6 +760,17 @@ fn guess_image_content_type(file_path: &str) -> String {
         "webp" => "image/webp",
         "bmp" => "image/bmp",
         "ico" => "image/x-icon",
+        "pdf" => "application/pdf",
+        "mp3" => "audio/mpeg",
+        "mp4" => "video/mp4",
+        "ogg" => "audio/ogg",
+        "wav" => "audio/wav",
+        "webm" => "video/webm",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "otf" => "font/otf",
+        "eot" => "application/vnd.ms-fontobject",
         _ => "application/octet-stream",
     }
     .to_string()
@@ -821,10 +839,13 @@ mod tests {
     }
 
     #[test]
-    fn test_is_image_file() {
-        assert!(is_image_file("test.png"));
-        assert!(is_image_file("test.jpg"));
-        assert!(!is_image_file("test.txt"));
+    fn test_is_servable_file() {
+        assert!(is_servable_file("test.png"));
+        assert!(is_servable_file("test.jpg"));
+        assert!(is_servable_file("test.pdf"));
+        assert!(is_servable_file("test.mp4"));
+        assert!(!is_servable_file("test.txt"));
+        assert!(!is_servable_file("test.md"));
     }
 
     #[test]
@@ -1201,37 +1222,41 @@ mod tests {
     }
 
     #[test]
-    fn test_is_image_file_all_types() {
+    fn test_is_servable_file_all_types() {
         // Test all supported image types
-        assert!(is_image_file("test.png"));
-        assert!(is_image_file("test.PNG"));
-        assert!(is_image_file("test.jpg"));
-        assert!(is_image_file("test.jpeg"));
-        assert!(is_image_file("test.gif"));
-        assert!(is_image_file("test.svg"));
-        assert!(is_image_file("test.webp"));
-        assert!(is_image_file("test.bmp"));
-        assert!(is_image_file("test.ico"));
-        // Test non-image files
-        assert!(!is_image_file("test.txt"));
-        assert!(!is_image_file("test.md"));
-        assert!(!is_image_file("test"));
+        assert!(is_servable_file("test.png"));
+        assert!(is_servable_file("test.PNG"));
+        assert!(is_servable_file("test.jpg"));
+        assert!(is_servable_file("test.jpeg"));
+        assert!(is_servable_file("test.gif"));
+        assert!(is_servable_file("test.svg"));
+        assert!(is_servable_file("test.webp"));
+        assert!(is_servable_file("test.bmp"));
+        assert!(is_servable_file("test.ico"));
+        // Test document types
+        assert!(is_servable_file("test.pdf"));
+        // Test media types
+        assert!(is_servable_file("test.mp3"));
+        assert!(is_servable_file("test.mp4"));
+        // Test non-servable files
+        assert!(!is_servable_file("test.txt"));
+        assert!(!is_servable_file("test.md"));
+        assert!(!is_servable_file("test"));
     }
 
     #[test]
-    fn test_guess_image_content_type() {
-        assert_eq!(guess_image_content_type("test.png"), "image/png");
-        assert_eq!(guess_image_content_type("test.jpg"), "image/jpeg");
-        assert_eq!(guess_image_content_type("test.jpeg"), "image/jpeg");
-        assert_eq!(guess_image_content_type("test.gif"), "image/gif");
-        assert_eq!(guess_image_content_type("test.svg"), "image/svg+xml");
-        assert_eq!(guess_image_content_type("test.webp"), "image/webp");
-        assert_eq!(guess_image_content_type("test.bmp"), "image/bmp");
-        assert_eq!(guess_image_content_type("test.ico"), "image/x-icon");
-        assert_eq!(
-            guess_image_content_type("test.txt"),
-            "application/octet-stream"
-        );
+    fn test_guess_content_type() {
+        assert_eq!(guess_content_type("test.png"), "image/png");
+        assert_eq!(guess_content_type("test.jpg"), "image/jpeg");
+        assert_eq!(guess_content_type("test.jpeg"), "image/jpeg");
+        assert_eq!(guess_content_type("test.gif"), "image/gif");
+        assert_eq!(guess_content_type("test.svg"), "image/svg+xml");
+        assert_eq!(guess_content_type("test.webp"), "image/webp");
+        assert_eq!(guess_content_type("test.bmp"), "image/bmp");
+        assert_eq!(guess_content_type("test.ico"), "image/x-icon");
+        assert_eq!(guess_content_type("test.pdf"), "application/pdf");
+        assert_eq!(guess_content_type("test.mp4"), "video/mp4");
+        assert_eq!(guess_content_type("test.txt"), "application/octet-stream");
     }
 
     #[test]
