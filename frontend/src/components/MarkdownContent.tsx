@@ -3,6 +3,7 @@ import { CodeBlock } from './CodeBlock'
 import { MermaidDiagram } from './MermaidDiagram'
 import { TodoCheckbox } from './TodoCheckbox'
 import { resolveRelativePath, isRelativeMarkdownLink } from '../utils/pathResolver'
+import { isRelativeAssetLink, getDirectory } from '../utils/htmlRewriter'
 
 interface MarkdownContentProps {
   html: string
@@ -95,11 +96,12 @@ export const MarkdownContent = memo(function MarkdownContent({
         }
       }
 
-      // Handle anchor tags for relative markdown links
-      if (tagName === 'a' && onLinkClick) {
+      // Handle anchor tags
+      if (tagName === 'a') {
         const href = element.getAttribute('href')
-        if (href && isRelativeMarkdownLink(href)) {
-          // This is a relative markdown link - handle it specially
+
+        // Handle relative markdown links (in-app navigation)
+        if (href && onLinkClick && isRelativeMarkdownLink(href)) {
           const resolvedPath = resolveRelativePath(filePath, href)
 
           // Get all children
@@ -128,6 +130,37 @@ export const MarkdownContent = memo(function MarkdownContent({
             e.preventDefault()
             onLinkClick(resolvedPath)
           }
+
+          return createElement('a', props, ...children)
+        }
+
+        // Handle relative asset links (PDFs, images, etc.) - rewrite to /api/static/
+        if (href && isRelativeAssetLink(href)) {
+          const dir = getDirectory(filePath)
+          const prefix = dir ? `${dir}/` : ''
+          const staticHref = `/api/static/${prefix}${href}`
+
+          const children = Array.from(element.childNodes).map((child, i) =>
+            convertNodeToReact(child, i)
+          )
+
+          const props: Record<string, unknown> = { key }
+          for (let i = 0; i < element.attributes.length; i++) {
+            const attr = element.attributes[i]
+            if (attr && attr.name !== 'href') {
+              if (attr.name === 'class') {
+                props.className = attr.value
+              } else if (attr.name === 'style') {
+                props.style = parseStyleString(attr.value)
+              } else {
+                props[attr.name] = attr.value
+              }
+            }
+          }
+
+          props.href = staticHref
+          props.target = '_blank'
+          props.rel = 'noopener noreferrer'
 
           return createElement('a', props, ...children)
         }

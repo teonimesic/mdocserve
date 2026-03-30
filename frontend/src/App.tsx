@@ -11,6 +11,7 @@ import { SidebarResizeHandle } from './components/SidebarResizeHandle'
 import { FileTree } from './components/FileTree'
 import { MarkdownContent } from './components/MarkdownContent'
 import { buildFileTree, type ApiFile } from './utils/fileTree'
+import { rewriteImagePaths } from './utils/htmlRewriter'
 import './App.css'
 import './CodeBlockEnhancements.css'
 
@@ -19,22 +20,6 @@ function wrapTablesForScroll(html: string): string {
   return html
     .replace(/<table>/g, '<div class="table-wrapper"><table>')
     .replace(/<\/table>/g, '</table></div>')
-}
-
-// Helper function to rewrite relative image paths to use /api/static/
-function rewriteImagePaths(html: string, cacheBust = false): string {
-  // Rewrite relative image paths to use /api/static/
-  // This handles src="image.png" -> src="/api/static/image.png"
-  // And src="path/to/image.png" -> src="/api/static/path/to/image.png"
-  // Add cache-busting parameter if needed (for image reloads)
-  const timestamp = cacheBust ? `?t=${Date.now()}` : ''
-  return html.replace(/<img([^>]*)\s+src="([^":/]+[^":]*)"/g, (match, attrs, src) => {
-    // Only rewrite if it's a relative path (doesn't start with http://, https://, or /)
-    if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('/')) {
-      return `<img${attrs} src="/api/static/${src}${timestamp}"`
-    }
-    return match
-  })
 }
 
 function App() {
@@ -67,8 +52,8 @@ function App() {
           let html = marked.parse(data.markdown) as string
           // Wrap tables for horizontal scrolling
           html = wrapTablesForScroll(html)
-          // Rewrite relative image paths to use /api/static/
-          html = rewriteImagePaths(html, cacheBustImages)
+          // Rewrite relative image paths to use /api/static/ with correct directory context
+          html = rewriteImagePaths(html, path, cacheBustImages)
           setContent(html)
           setCurrentPath(path)
           currentPathRef.current = path
